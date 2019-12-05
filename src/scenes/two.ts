@@ -1,19 +1,15 @@
 import * as Phaser from 'phaser';
 import { BaseScene } from './base';
-import { SceneTwo } from './two';
-import { Wait } from './_events';
+import { SceneOne } from './one';
+import { DialogModalPlugin } from '../plugins/dialog';
 
-export class SceneOne extends BaseScene {
+export class SceneTwo extends BaseScene {
   constructor () {
-    super('SceneOne');
+    super('SceneTwo');
   }
 
   eventSequence () { return [
-    'First text.',
-    'Second text.',
-    'Third text. Now wait for three seconds.',
-    new Wait(3000),
-    'Fourth text.'
+    'Skip.'
   ]}
 
   wrapUpScene() {
@@ -22,7 +18,7 @@ export class SceneOne extends BaseScene {
     this.time.addEvent({
       delay: 1000,
       callback: () => {
-        this.scene.add(null, SceneTwo, true);
+        this.scene.add(null, SceneOne, true);
         this.scene.remove(this.key);
       },
       callbackScope: this

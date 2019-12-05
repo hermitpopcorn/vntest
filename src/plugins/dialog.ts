@@ -22,21 +22,9 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
 
   constructor (pluginManager) {
     super(pluginManager);
-    this.scene = pluginManager.game.scene.scenes[0];
   }
 
-  start (): void {
-    var eventEmitter = this.game.events;
-    eventEmitter.on('shutdown', this.shutdown, this);
-    eventEmitter.on('destroy', this.destroy, this);
-  }
-
-  alertio () {
-    alert("a");
-  }
-
-  // Initialize the dialog modal
-  init (opts?): void {
+  init (opts?) {
     // Check to see if any optional parameters were passed
     if (!opts) opts = {};
     // set properties from opts object or use defaults
@@ -61,6 +49,16 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     this.dialog;
     this.graphics;
 
+    if (opts.scene) {
+      this.scene = opts.scene;
+    }
+  }
+
+  setScene (scene: Phaser.Scene) {
+    this.scene = scene;
+  }
+
+  start () {
     // Create the dialog window
     this._createWindow();
   }
@@ -101,7 +99,6 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
   // Creates the border rectangle of the dialog window
   _createOuterWindow (x, y, rectWidth, rectHeight) {
     this.graphics.lineStyle(this.borderThickness, this.borderColor, this.borderAlpha);
-    console.log([x, y]);
     this.graphics.strokeRect(x, y, rectWidth, rectHeight);
   }
 
@@ -117,7 +114,6 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     this._createOuterWindow(dimensions.x, dimensions.y, dimensions.rectWidth, dimensions.rectHeight);
     this._createInnerWindow(dimensions.x, dimensions.y, dimensions.rectWidth, dimensions.rectHeight);
 
-    console.log(dimensions);
     var windowBox = this.scene.make.zone({
       x: dimensions.x + (dimensions.rectWidth / 2),
       y: dimensions.y + (dimensions.rectHeight / 2),
@@ -125,7 +121,9 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
       height: dimensions.rectHeight
     });
     windowBox.setInteractive();
-    windowBox.on('pointerdown', () => { this.game.events.emit('dialogModalClicked') });
+    windowBox.on('pointerdown', () => {
+      this.game.events.emit('dialogModalClicked'); // Emit event globally because I don't know how to do it better
+    });
   }
 
   hideWindow() {
@@ -239,6 +237,5 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
 
   destroy () {
     this.shutdown();
-    this.scene = undefined;
   }
 }

@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { DialogModalPlugin } from './plugins/dialog';
 import { SceneOne } from './scenes/one';
+import { SceneTwo } from './scenes/two';
 
 const gameConfig: Phaser.Types.Core.GameConfig = {
   title: 'Sample',
@@ -24,7 +25,7 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: 'game',
   backgroundColor: '#000000',
 
-  scene: SceneOne,
+  scene: SceneOne
 };
 
 export const game = new Phaser.Game(gameConfig);
