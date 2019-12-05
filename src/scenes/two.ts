@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { BaseScene } from './base';
+import { BaseScene } from './_base';
 import { SceneOne } from './one';
 import { DialogModalPlugin } from '../plugins/dialog';
 

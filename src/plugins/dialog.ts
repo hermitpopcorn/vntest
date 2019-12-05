@@ -19,6 +19,7 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
   private dialog;
   private graphics;
   private animating;
+  private sound;
 
   constructor (pluginManager) {
     super(pluginManager);
@@ -38,6 +39,7 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     this.padding = opts.padding || 24;
     this.dialogSpeed = opts.dialogSpeed || 3;
     this.position = opts.position || 'bottom';
+    this.sound = opts.sound || null;
 
     // used for animating the text
     this.eventCounter = 0;
@@ -159,13 +161,19 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     // Set default options
     if (!opts) opts = {};
     opts.animate = opts.animate || true;
+    opts.append = opts.append || false;
 
     // Reset the dialog
     this.eventCounter = 0;
     this.dialog = text.split('');
     if (this.timedEvent) this.timedEvent.remove();
 
-    var tempText = opts.animate ? '' : text;
+    var tempText: string;
+    if (opts.append) {
+      tempText = opts.animate ? this.text.text : this.text.text + text;
+    } else {
+      tempText = opts.animate ? '' : text;
+    }
     this._setText(tempText);
 
     if (opts.animate) {
