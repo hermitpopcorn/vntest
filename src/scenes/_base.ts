@@ -1,9 +1,15 @@
 import * as Phaser from 'phaser';
 import { DialogModalPlugin } from '../plugins/dialog';
+import { Wait } from './_events';
 
 export class BaseScene extends Phaser.Scene {
   protected key: string;
   protected dialogModal: DialogModalPlugin;
+
+  // Used to store stuff
+  protected sounds: Array<Phaser.Sound.BaseSound> = [];
+  protected images: Array<Phaser.GameObjects.Image> = [];
+  protected timeEvents: Array<Phaser.Time.TimerEvent> = [];
 
   constructor (key: string) {
     super({
@@ -20,14 +26,31 @@ export class BaseScene extends Phaser.Scene {
 
   create () {
     var self = this;
-    this.dialogModal = this.plugins.get('DialogModalPlugin') as DialogModalPlugin;
-    self.game.events.on('dialogModalClicked', () => { self.advance() });
+    self.dialogModal = self.plugins.get('DialogModalPlugin') as DialogModalPlugin;
+    self._initEvents();
 
     self.runSequence(0);
   }
 
+  _initEvents () {
+    var self = this;
+    self.game.events.on('dialogModalClicked', () => { self.advance() });
+    self.game.events.on('autoNext', () => { self.advance() });
+  }
+
   update () {
     // This should be overridden by the child class
+  }
+
+  playCharacterVoice (key) {
+    var self = this;
+
+    if (self.sounds['voice']) {
+      self.sounds['voice'].stop();
+      self.sounds['voice'].destroy();
+    }
+    self.sounds['voice'] = self.sound.add(key);
+    self.sounds['voice'].play();
   }
 
   runSequence (index) {
@@ -46,15 +69,17 @@ export class BaseScene extends Phaser.Scene {
   }
 
   runEvent (event: any): Promise<any> {
+    var self = this;
+
     if (typeof event == "string") {
-      return this.runTextDisplay(event);
+      return self.runTextDisplay(event);
     } else
     if (typeof event == "object") {
-      if (event.constructor.name == "Promise") {
+      if (event instanceof Promise) {
         return event;
       } else
-      if (event.constructor.name == "Wait") {
-        return this.wait(event.length);
+      if (event instanceof Wait) {
+        return self.wait(event.length);
       }
     } else
     if (typeof event == "function") {
@@ -66,13 +91,28 @@ export class BaseScene extends Phaser.Scene {
     var self = this;
 
     return new Promise((fulfill, reject) => {
+      var name = null;
+      var opts = {};
+
       if (text.charAt(0) == "+") {
+        opts['append'] = true;
         text = text.substr(1);
-        self.dialogModal.setText(text, { append: true });
-      } else {
-        self.dialogModal.setText(text);
       }
-      this.game.events.on('advance', () => {
+
+      if (text.charAt(0) == "[") {
+        var nameEnd = text.indexOf("]");
+        name = text.substr(1, nameEnd - 1);
+        text = text.substr(nameEnd + 1);
+      }
+
+      if (text.charAt(text.length - 1) == "^") {
+        opts['autoclose'] = true;
+        text = text.substr(0, text.length - 1);
+      }
+
+      self.dialogModal.setText(text, name, opts);
+
+      self.game.events.on('nextSequence', () => {
         fulfill();
       })
     });
@@ -82,7 +122,7 @@ export class BaseScene extends Phaser.Scene {
     var self = this;
 
     return new Promise((fulfill, reject) => {
-      return this.time.addEvent({
+      return self.time.addEvent({
         delay: length,
         callback: () => { fulfill(); }
       });
@@ -90,10 +130,12 @@ export class BaseScene extends Phaser.Scene {
   }
 
   advance () {
-    if (this.dialogModal.isInAnimation()) {
-      this.dialogModal.skipTextAnimation();
+    var self = this;
+
+    if (self.dialogModal.isInAnimation() && !self.dialogModal.isAutoclose()) {
+      self.dialogModal.skipTextAnimation();
     } else {
-      this.game.events.emit('advance');
+      self.game.events.emit('nextSequence');
     }
   }
 
@@ -102,11 +144,18 @@ export class BaseScene extends Phaser.Scene {
   ]}
 
   _removeDialogModal() {
-    this.dialogModal.hideWindow();
+    this.dialogModal.hide();
     this.plugins.removeGlobalPlugin('DialogModalPlugin');
   }
 
   wrapUpScene () {
+    // Stop all sounds
+    for (let sound of this.sounds) {
+      sound.stop();
+      sound.destroy();
+    }
+
+    // Remove Dialog Modal
     this._removeDialogModal();
   }
 }

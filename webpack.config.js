@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
   entry: {
@@ -14,6 +15,10 @@ module.exports = {
         test: /\.tsx?$/,
         use: 'ts-loader',
         exclude: /node_modules/
+      },
+      {
+        test: /\.(gif|png|jpe?g|svg|xml|mp3)$/i,
+        use: "file-loader"
       }
     ]
   },
@@ -53,6 +58,14 @@ module.exports = {
   ],
 
   optimization: {
+    minimize: true,
+    minimizer: [new TerserPlugin({
+      terserOptions: {
+        output: {
+          comments: false
+        }
+      }
+    })],
     splitChunks: {
       cacheGroups: {
         commons: {

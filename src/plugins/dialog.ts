@@ -9,17 +9,20 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
   private windowColor;
   private windowHeight;
   private margin;
-  private padding;
-  private dialogSpeed;
+  private messageSpeed;
   private eventCounter;
-  private position;
   private visible;
   private text;
+  private characterName;
+  private characterNameText;
   private timedEvent;
-  private dialog;
-  private graphics;
+  private message;
+  private images;
   private animating;
   private sound;
+  private textStyle;
+  private drawn;
+  private autoclose;
 
   constructor (pluginManager) {
     super(pluginManager);
@@ -33,12 +36,10 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     this.borderColor = opts.borderColor || 0x907748;
     this.borderAlpha = opts.borderAlpha || 1;
     this.windowAlpha = opts.windowAlpha || 0.9;
-    this.windowColor = opts.windowColor || 0x303030;
-    this.windowHeight = opts.windowHeight || 260;
-    this.margin = opts.margin || { out: 48, left: 32, right: 32 };
-    this.padding = opts.padding || 24;
-    this.dialogSpeed = opts.dialogSpeed || 3;
-    this.position = opts.position || 'bottom';
+    this.windowColor = opts.windowColor || 0xffffff;
+    this.windowHeight = opts.windowHeight || 300;
+    this.margin = opts.margin || { top: 70, left: 350, right: 350 };
+    this.messageSpeed = opts.messageSpeed || 10;
     this.sound = opts.sound || null;
 
     // used for animating the text
@@ -48,8 +49,23 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     // the current text in the window
     this.text;
     // the text that will be displayed in the window
-    this.dialog;
-    this.graphics;
+    this.message;
+    // the images that are used to display the textbox
+    this.images = [];
+    // show nameplate
+    this.characterName = null;
+    this.characterNameText;
+    // whether images have been drawn (init)
+    this.drawn = false;
+    // whether the message immediately closes after text animation ends
+    this.autoclose = false;
+
+    // text style
+    this.textStyle = {
+      color: '#2b2b2b',
+      fontFamily: "Mukta",
+      fontSize: 42
+    };
 
     if (opts.scene) {
       this.scene = opts.scene;
@@ -58,6 +74,31 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
 
   setScene (scene: Phaser.Scene) {
     this.scene = scene;
+  }
+
+  _getNameplateShiftAmount (name): number
+  {
+    if (name === "Shioriko") {
+      return 0.6;
+    }
+    return 0;
+  }
+
+  _processPixel (data, index, deltahue)
+  {
+      var r = data[index];
+      var g = data[index + 1];
+      var b = data[index + 2];
+
+      var hsv = Phaser.Display.Color.RGBToHSV(r, g, b);
+
+      var h = hsv.h + deltahue;
+
+      var rgb: any = Phaser.Display.Color.HSVToRGB(h, hsv.s, hsv.v);
+
+      data[index] = rgb.r;
+      data[index + 1] = rgb.g;
+      data[index + 2] = rgb.b;
   }
 
   start () {
@@ -75,61 +116,43 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     return Number(this.game.config.height);
   }
 
-  // Calculates where to place the dialog window based on the game size
-  _calculateWindowDimensions (width, height) {
-    var x = this.margin.left;
-    var y = this.margin.out;
-    if (this.position == 'bottom') {
-      y = height - this.windowHeight - this.margin.out;
-    }
-    var rectWidth = width - (this.margin.left + this.margin.right);
-    var rectHeight = this.windowHeight;
-    return {
-      x,
-      y,
-      rectWidth,
-      rectHeight
-    };
-  }
-
-  // Creates the inner dialog window (where the text is displayed)
-  _createInnerWindow (x, y, rectWidth, rectHeight) {
-    this.graphics.fillStyle(this.windowColor, this.windowAlpha);
-    this.graphics.fillRect(x + 1, y + 1, rectWidth - 1, rectHeight - 1);
-  }
-
-  // Creates the border rectangle of the dialog window
-  _createOuterWindow (x, y, rectWidth, rectHeight) {
-    this.graphics.lineStyle(this.borderThickness, this.borderColor, this.borderAlpha);
-    this.graphics.strokeRect(x, y, rectWidth, rectHeight);
+  // Lodas the window images
+  _loadWindow () {
+    this.scene.load.image('messageWindowBack', './assets/images/system/textbox.png');
+    this.scene.load.image('nameplateBack', './assets/images/system/nameplate.png');
   }
 
   // Creates the dialog window
   _createWindow () {
+    this._loadWindow();
+
     var gameHeight = this._getGameHeight();
     var gameWidth = this._getGameWidth();
-    var dimensions = this._calculateWindowDimensions(gameWidth, gameHeight);
-    this.graphics = this.scene.add.graphics();
-    this.graphics.visible = this.visible;
-    this.graphics.setDepth(1000);
 
-    this._createOuterWindow(dimensions.x, dimensions.y, dimensions.rectWidth, dimensions.rectHeight);
-    this._createInnerWindow(dimensions.x, dimensions.y, dimensions.rectWidth, dimensions.rectHeight);
+    var clicked = () => {
+      this.game.events.emit('dialogModalClicked'); // Emit event globally because I don't know how to do it better
+    };
 
     var windowBox = this.scene.make.zone({
-      x: dimensions.x + (dimensions.rectWidth / 2),
-      y: dimensions.y + (dimensions.rectHeight / 2),
-      width: dimensions.rectWidth,
-      height: dimensions.rectHeight
+      x: 0,
+      y: 820,
+      width: gameWidth,
+      height: gameHeight
     });
+    windowBox.setOrigin(0, 0);
     windowBox.setInteractive();
-    windowBox.on('pointerdown', () => {
-      this.game.events.emit('dialogModalClicked'); // Emit event globally because I don't know how to do it better
-    });
+    windowBox.on('pointerdown', clicked);
+
+    var keyObj = this.scene.input.keyboard.addKey('ENTER');
+    keyObj.on('up', clicked);
   }
 
-  hideWindow() {
+  hide () {
     if (this.visible) this.toggleWindow();
+  }
+
+  show () {
+    if (!this.visible) this.toggleWindow();
   }
 
   // Hide/Show the dialog window
@@ -140,9 +163,13 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
       this.visible = to;
     }
 
-    let targets = []
+    var targets = []
     if (this.text) targets.push(this.text);
-    if (this.graphics) targets.push(this.graphics);
+    targets.push(this.images['messageWindow']);
+    targets.push(this.characterNameText);
+    if (this.characterName) {
+      targets.push(this.images['nameplate']);
+    }
 
     if (this.visible) {
       targets.map(target => { target.visible = 1 });
@@ -152,22 +179,116 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
       targets,
       duration: 600,
       alpha: (this.visible) ? { from: 0, to: 1 } : { from: 1, to: 0 },
-      onComplete: () => { if (!this.visible) targets.map(target => { target.visible = 0 }) }
+      onComplete: () => {
+        if (!this.visible) targets.map(target => { target.visible = 0 });
+      }
     });
   }
 
+  _draw () {
+    // Initialize images
+    this._createWindowBg();
+    this._createNameText();
+    this._shiftNameplate();
+  }
+
+  _createWindowBg () {
+    if (!this.images['messageWindow']) {
+      // Background
+      this.images['messageWindow'] = this.scene.add.image(0, 0, 'messageWindowBack');
+      this.images['messageWindow'].setOrigin(0, 0);
+      this.images['messageWindow'].setAlpha(0);
+      this.images['messageWindow'].setDepth(1800);
+    }
+  }
+
+  _createNameText () {
+    // Initialize character name text
+    if (!this.characterNameText) {
+      var style = {...this.textStyle, ...{
+        wordWrap: { width: 600 },
+        fixedHeight: 56,
+        shadow: { offsetX: 2, offsetY: 2, color: '#666666', blur: 2, fill: true }
+      }};
+      this.characterNameText = this.scene.make.text({ x: 290, y: 778,
+        text: this.characterName || "",
+        style
+      });
+      this.characterNameText.setDepth(1802);
+    }
+  }
+
+  _resetNameplate () {
+    // If have been initialized, destroy
+    if (this.images['nameplate']) {
+      this.images['nameplateTexture'] = null;
+      this.images['shiftedNameplateTexture'].destroy();
+      this.images['shiftedNameplateContext'] = null;
+      this.images['nameplate'].destroy();
+    }
+    this.images['nameplateTexture'] = this.scene.textures.get('nameplateBack').getSourceImage();
+    this.images['shiftedNameplateTexture'] = this.scene.textures.createCanvas('shiftedTextNameplateBg', this.images['nameplateTexture'].width, this.images['nameplateTexture'].height);
+    this.images['shiftedNameplateContext'] = this.images['shiftedNameplateTexture'].getSourceImage().getContext('2d');
+    this.images['shiftedNameplateContext'].drawImage(this.images['nameplateTexture'], 0, 0);
+    this.images['nameplate'] = this.scene.add.image(197, 770, 'shiftedTextNameplateBg');
+    this.images['nameplate'].setOrigin(0, 0);
+    this.images['nameplate'].setAlpha(0);
+    this.images['nameplate'].setDepth(1801);
+    this.images['shiftedNameplateTexture'].refresh();
+  }
+
+  _shiftNameplate () {
+    this._resetNameplate();
+
+    if (this.characterName) {
+      this.characterNameText.setText(this.characterName);
+      this.characterNameText.setAlpha(1);
+      console.log("Yeah! Maximum alpha!");
+      this.images['nameplate'].setAlpha(1);
+
+      var pixels = this.images['shiftedNameplateContext'].getImageData(0, 0, this.images['nameplateTexture'].width, this.images['nameplateTexture'].height);
+      for (var i = 0; i < pixels.data.length / 4; i++)
+      {
+        this._processPixel(pixels.data, i * 4, this._getNameplateShiftAmount(this.characterName));
+      }
+      this.images['shiftedNameplateContext'].putImageData(pixels, 0, 0);
+      this.images['shiftedNameplateTexture'].refresh();
+    } else {
+      console.log("Time to die!");
+      this.characterNameText.setAlpha(0);
+      this.images['nameplate'].setAlpha(0);
+    }
+  }
+
   // Sets the text for the dialog window
-  setText (text, opts?) {
+  setText (text, name?, opts?) {
+    if (!this.drawn) {
+      this.drawn = true;
+      this._draw();
+    }
+
     // Set default options
     if (!opts) opts = {};
     opts.animate = opts.animate || true;
     opts.append = opts.append || false;
+    opts.autoclose = opts.autoclose || false;
 
-    // Reset the dialog
+    // Autoclose setting
+    this.autoclose = opts.autoclose;
+
+    // Reset the dialog text
+    if (this.characterNameText) this.characterNameText.setText('');
+    if (this.text) this.text.setText('');
     this.eventCounter = 0;
-    this.dialog = text.split('');
+    this.message = text.split('');
     if (this.timedEvent) this.timedEvent.remove();
 
+    // Display nameplate if requested
+    this.characterName = name || false;
+    // Change nameplate color
+    this._shiftNameplate();
+
+    // Process text
     var tempText: string;
     if (opts.append) {
       tempText = opts.animate ? this.text.text : this.text.text + text;
@@ -179,23 +300,26 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     if (opts.animate) {
       this.animating = true;
       this.timedEvent = this.scene.time.addEvent({
-        delay: 150 - (this.dialogSpeed * 30),
+        delay: 150 - (this.messageSpeed * 30),
         callback: this._animateText,
         callbackScope: this,
         loop: true
       });
-    } else { this.animating = false; }
+    } else { this.animating = false; this._finish(); }
 
+    // If not visible yet, force visibility
     if (!this.visible) this.toggleWindow(true);
   }
 
   // Slowly displays the text in the window to make it appear annimated
   _animateText () {
     this.eventCounter++;
-    this.text.setText(this.text.text + this.dialog[this.eventCounter - 1]);
-    if (this.eventCounter === this.dialog.length) {
+    this.text.setText(this.text.text + this.message[this.eventCounter - 1]);
+    if (this.eventCounter === this.message.length) {
+      // Finished animating
       this.animating = false;
       this.timedEvent.remove();
+      this._finish();
     }
   }
 
@@ -204,34 +328,42 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     // Reset the dialog
     if (this.text) this.text.destroy();
 
-    var x = this.margin.left + this.padding;
-    var y = this.margin.out + this.padding;
-    if (this.position == 'bottom') {
-      y = this._getGameHeight() - this.windowHeight - this.margin.out + this.padding;
-    }
+    var x = this.margin.left;
+    var y = this._getGameHeight() - this.windowHeight + this.margin.top;
 
     this.text = this.scene.make.text({
       x,
       y,
       text,
-      style: {
-        fontFamily: "Segoe UI",
-        fontSize: 40,
-        wordWrap: { width: this._getGameWidth() - (this.padding * 2) - 25 },
-        fixedHeight: this.windowHeight - this.padding
-      }
+      style: {...this.textStyle, ...{
+        wordWrap: { width: this._getGameWidth() - (this.margin.left + this.margin.right) },
+        fixedHeight: this.windowHeight,
+        shadow: { offsetX: 2, offsetY: 2, color: '#666666', blur: 2, fill: true }
+      }}
     });
-    this.text.setDepth(1001);
+    this.text.setDepth(1803);
+  }
+
+  // Finish up displaying text
+  _finish () {
+    if (this.autoclose) {
+      this.game.events.emit('autoNext');
+    }
   }
 
   skipTextAnimation () {
     if (this.timedEvent) this.timedEvent.remove();
-    this.text.setText(this.dialog.join(''));
+    this.text.setText(this.message.join(''));
     this.animating = false;
+    this._finish();
   }
 
   isInAnimation (): boolean {
     return this.animating;
+  }
+
+  isAutoclose (): boolean {
+    return this.autoclose;
   }
 
   update () {}
@@ -241,6 +373,10 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
   shutdown () {
     if (this.timedEvent) this.timedEvent.remove();
     if (this.text) this.text.destroy();
+    if (this.characterNameText) this.characterNameText.destroy();
+    if (this.images['shiftedNameplateTexture']) this.images['shiftedNameplateTexture'].destroy();
+    if (this.images['nameplate']) this.images['nameplate'].destroy();
+    if (this.images['messageWindow']) this.images['messageWindow'].destroy();
   }
 
   destroy () {
