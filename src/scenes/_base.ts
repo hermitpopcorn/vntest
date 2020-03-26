@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { DialogModalPlugin } from '../plugins/dialog';
-import { Wait } from './_events';
+import { Wait, VoicedLine, Autoskip } from './_events';
 
 export class BaseScene extends Phaser.Scene {
   protected key: string;
@@ -45,10 +45,6 @@ export class BaseScene extends Phaser.Scene {
   playCharacterVoice (key) {
     var self = this;
 
-    if (self.sounds['voice']) {
-      self.sounds['voice'].stop();
-      self.sounds['voice'].destroy();
-    }
     self.sounds['voice'] = self.sound.add(key);
     self.sounds['voice'].play();
   }
@@ -71,6 +67,8 @@ export class BaseScene extends Phaser.Scene {
   runEvent (event: any): Promise<any> {
     var self = this;
 
+    self._eventCleanup();
+
     if (typeof event == "string") {
       return self.runTextDisplay(event);
     } else
@@ -80,10 +78,40 @@ export class BaseScene extends Phaser.Scene {
       } else
       if (event instanceof Wait) {
         return self.wait(event.length);
+      } else
+      if (event instanceof VoicedLine) {
+        this.playCharacterVoice(event.voiceKey);
+        return self.runTextDisplay(event.message);
+      } else
+      if (event instanceof Autoskip) {
+        return new Promise((fulfill, reject) => {
+          if (event.delay) {
+            self.timeEvents['autoskip'] = self.time.addEvent({
+              delay: event.delay,
+              callback: () => {
+                self.game.events.emit('nextSequence');
+              },
+              callbackScope: self
+            });
+          } else {
+            this.timeEvents['autoskip'].remove(false);
+            this.timeEvents['autoskip'].destroy();
+          }
+          fulfill();
+        });
       }
     } else
     if (typeof event == "function") {
       return new Promise((fulfill, reject) => { event(); fulfill(); });
+    }
+  }
+
+  _eventCleanup () {
+    // Destroy voiced lines every new line
+    if (this.sounds['voice']) {
+      this.sounds['voice'].stop();
+      this.sounds['voice'].destroy();
+      delete this.sounds['voice'];
     }
   }
 

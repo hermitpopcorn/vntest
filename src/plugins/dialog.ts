@@ -243,7 +243,6 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
     if (this.characterName) {
       this.characterNameText.setText(this.characterName);
       this.characterNameText.setAlpha(1);
-      console.log("Yeah! Maximum alpha!");
       this.images['nameplate'].setAlpha(1);
 
       var pixels = this.images['shiftedNameplateContext'].getImageData(0, 0, this.images['nameplateTexture'].width, this.images['nameplateTexture'].height);
@@ -254,7 +253,6 @@ export class DialogModalPlugin extends Phaser.Plugins.BasePlugin {
       this.images['shiftedNameplateContext'].putImageData(pixels, 0, 0);
       this.images['shiftedNameplateTexture'].refresh();
     } else {
-      console.log("Time to die!");
       this.characterNameText.setAlpha(0);
       this.images['nameplate'].setAlpha(0);
     }

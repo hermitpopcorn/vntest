@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { BaseScene } from './_base';
 import { SceneTwo } from './two';
-import { Wait } from './_events';
+import { Wait, VoicedLine, Autoskip } from './_events';
 
 export class SceneOne extends BaseScene {
   constructor () {
@@ -77,10 +77,7 @@ export class SceneOne extends BaseScene {
       this.images['shioriko'].setTexture('shioriko-angry');
     },
     'Tiba-tiba wajahnya berubah bengis.',
-    () => {
-      this.playCharacterVoice('shioriko-voice-1');
-    },
-    '[Shioriko]Eh, semuanya.',
+    new VoicedLine('shioriko-voice-1', '[Shioriko]Eh, semuanya.'),
     '[Aku]Ah...?',
     () => {
       this.add.tween({
@@ -88,9 +85,8 @@ export class SceneOne extends BaseScene {
         duration: 600,
         scale: { from: 1, to: 1.2 },
       });
-      this.playCharacterVoice('shioriko-voice-2');
     },
-    '[Shioriko]Kalau di grup tuh jangan berisik...',
+    new VoicedLine('shioriko-voice-2', '[Shioriko]Kalau di grup tuh jangan berisik...'),
     '[Aku]Mi, Mifune...?',
     () => {
       this.add.tween({
@@ -99,19 +95,10 @@ export class SceneOne extends BaseScene {
         scale: { from: 1.2, to: 1.8 },
         y: { from: 660, to: 800 },
       });
-      this.playCharacterVoice('shioriko-voice-3');
     },
-    () => {
-      this.timeEvents['autoskip'] = this.time.addEvent({
-        delay: 5000,
-        callback: () => {
-          this.game.events.emit('nextSequence');
-        },
-        callbackScope: this
-      });
-    },
-    '[Shioriko]Udah tau gue lagi coli lu malah pada berisik ANJING! KONTOL!',
-    () => { this.timeEvents['autoskip'].remove(false); this.timeEvents['autoskip'].destroy(); },
+    new Autoskip(5000),
+    new VoicedLine('shioriko-voice-3', '[Shioriko]Udah tau gue lagi coli lu malah pada berisik ANJING! KONTOL!'),
+    new Autoskip(null),
     () => {
       this.add.tween({
         targets: [this.images['shioriko']],
@@ -119,19 +106,10 @@ export class SceneOne extends BaseScene {
         scale: { from: 1.8, to: 5 },
         y: { from: 800, to: 2000 },
       });
-      this.playCharacterVoice('shioriko-voice-4');
     },
-    () => {
-      this.timeEvents['autoskip'] = this.time.addEvent({
-        delay: 2500,
-        callback: () => {
-          this.game.events.emit('nextSequence');
-        },
-        callbackScope: this
-      });
-    },
-    '[Shioriko]Henpon gue jadi ngeleg nih guE LAGI COLI WOEEEIIIII',
-    () => { this.timeEvents['autoskip'].remove(false); this.timeEvents['autoskip'].destroy(); },
+    new Autoskip(2500),
+    new VoicedLine('shioriko-voice-4', '[Shioriko]Henpon gue jadi ngeleg nih guE LAGI COLI WOEEEIIIII'),
+    new Autoskip(null),
     () => {
       var targets = [];
       for (let item of this.images) {
@@ -150,6 +128,7 @@ export class SceneOne extends BaseScene {
   ]}
 
   wrapUpScene() {
+    // Loop for now
     this.runSequence(0);
     return true;
 
